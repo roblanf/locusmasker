@@ -28,13 +28,13 @@ The problem is that in a large multi-locus alignment not all sequenced loci from
 
 # Pros and cons of masking data
 
-The intention of this repo is that one would use this script to mask data before building a tree. An obvious use case would be to detect and remove contaminants and mislabelled sequences from large datasets. These are _obviously_ misleading because they're _wrong_, and nobody wants them in their datasets. Another use case is more nuanced - removing loci that have moved horizontally, due to processes like introgression or HGT. These loci are _not_ wrong in the biological sense, but one might still be interested in masking them if the intention is to use a method that doesn't account for these biological processes when building the tree. 
+The intention of this repo is that one would use this program to mask data before building a tree. An obvious use case would be to detect and remove contaminants and mislabelled sequences from large datasets. These are _obviously_ misleading because they're _wrong_, and nobody wants them in their datasets. Another use case is more nuanced - removing loci that have moved horizontally, due to processes like introgression or HGT. These loci are _not_ wrong in the biological sense, but one might still be interested in masking them if the intention is to use a method that doesn't account for these biological processes when building the tree. 
 
 So, one should be aware that the individual loci from individual taxa highlighted by this method could be highlighted due to any of the following three reasons: (i) the loci are strictly wrong (e.g. contamination during sequencing); (ii) the loci are biologically correct but not accounted for by a downstream method (e.g. HGT in a standard BEAST analysis); (iii) the loci have been incorrectly highlighted. Obviously, LocusMasker is trying to find instances of (i) and (ii), and avoid (iii). 
 
-An important thing to be aware of is that contamination and HGT can leave identical signals in the data. It's literally impossible to confidently tell them apart from an alignment alone. So, if the *focus* of your work is finding signals of HGT, then LocusMasker will _help_ you to infer a good backbone species tree, but it will do that in part by masking precisely the data you'd want to use to find HGT. In this case, the sensible use of the script would be to do it in two stages:
+An important thing to be aware of is that contamination and HGT can leave identical signals in the data. It's literally impossible to confidently tell them apart from an alignment alone. So, if the *focus* of your work is finding signals of HGT, then LocusMasker will _help_ you to infer a good backbone species tree, but it will do that in part by masking precisely the data you'd want to use to find HGT. In this case, the sensible use of the program would be to do it in two stages:
 
-i. use the script to mask data to build a single tree
+i. use the program to mask data to build a single tree
 ii. un-mask data that you think comes from HGT (to which I say, you will need some kind of useful things like replicates to know if you are dealing with HGT or contamination!) to then look for the interesting biological signals w.r.t to the tree estimated in step (i).
 
 # Input/output
@@ -46,6 +46,8 @@ Input either of the following:
 1. A single NEXUS format alignment file with a SETS block defining the loci
 2. A FASTA, PHYLIP, or NEXUS format alignment with a RAxML-style partitions.txt file defining the loci.
 
+The alignment file may be gzip-compressed (e.g. `alignment.fasta.gz`). It is recognised by its content, not its name, and the masked alignment is then written gzip-compressed too.
+
 NB: your alignment must have at least 10 loci for this method to work.
 
 More details on formats can be found here: https://iqtree.github.io/doc/Advanced-Tutorial
@@ -55,8 +57,9 @@ More details on formats can be found here: https://iqtree.github.io/doc/Advanced
 The output consists of the following:
 
 1. `report.html`, an interactive HTML report showing all results. Note that the data for this are in the `report_files` folder, so if you want to share your report, share this folder alongside it!
-2. The alignment in its input format with every outlier sequence (individual locus in a single taxon) masked as gaps, e.g. `alignment.masked.nex`
+2. The alignment in its input format with every outlier sequence (individual locus in a single taxon) masked as gaps, e.g. `alignment.masked.nex` (or `alignment.masked.nex.gz` if the input was gzip-compressed)
 3. `masked.csv`, one row per masked cell with the evidence for masking it (see tests below)
+4. `run.log`, the log of the run as it was printed: every line starts with the time it was written, and the last line gives the total execution time
 
 # Method overview
 
@@ -86,54 +89,57 @@ The tests above can miss a couple of important cases. An HGT event deep in the t
 
 # Usage
 
+LocusMasker is a single program written in Rust. (It began as a Python script, `locusmasker.py`; that script is kept in `python-original/` as the reference this program was ported from, and for the same input the two write the same results.)
+
 ## Installation
 
-The simplest way to run this script is to use Conda as follows. 
+**A prebuilt binary.** For Linux on x86-64 (glibc 2.28 or later), download `locusmasker-<version>-x86_64-linux-gnu.tar.gz` from the [releases page](https://github.com/donovan-h-parks/locusmasker-rust/releases), unpack it, and put the `locusmasker` file it holds somewhere on your `PATH`. That one file is the whole program: the report viewer is built into it.
 
-Install mamba if you don't already have it: https://github.com/conda-forge/miniforge#install
-
-Download the latest release and go into the folder (the third line checks out the most recent tagged release, rather than whatever is being worked on):
+**From source.** Install Rust if you don't already have it (https://rustup.rs), then:
 
 ```
-git clone https://github.com/roblanf/locusmasker.git
-cd locusmasker
-git checkout $(git describe --tags --abbrev=0 origin/main)
+git clone https://github.com/donovan-h-parks/locusmasker-rust.git
+cd locusmasker-rust
+cargo build --release
 ```
 
-Create the conda environment and activate it:
+This leaves the program at `target/release/locusmasker`. Copy it wherever you like, or let Cargo put it on your `PATH` (in `~/.cargo/bin`):
 
 ```
-mamba env create -f environment.yml
-mamba activate locusmasker
+cargo install --path .
 ```
 
-If you prefer to do it another way, the requirements for the script are in the `environment.yml` file.
-
-## Running the script
-
-You need to tell the script where the alignment is, whether it's DNA or amino acids, and where to put the output. If you have a nexus file with a SETS block (example filename here is `alignment.nex`): 
+Check that it runs:
 
 ```
-python locusmasker.py --aln alignment.nex --datatype dna --out scan
+locusmasker --help
+```
+
+## Running LocusMasker
+
+You need to tell it where the alignment is, whether it's DNA or amino acids, and where to put the output. If you have a nexus file with a SETS block (example filename here is `alignment.nex`):
+
+```
+locusmasker --aln alignment.nex --datatype dna --out scan
 ```
 
 If you have a nexus file with no SETS block, or a FASTA or PHYLIP alignment, and a partitions file:
 
 ```
-python locusmasker.py --aln alignment.fasta --partitions partitions.txt --datatype dna --out scan
+locusmasker --aln alignment.fasta --partitions partitions.txt --datatype dna --out scan
 ```
 
-Big datasets take a while. Give the script more threads and it will use them:
+Big datasets take a while. Give it more threads and it will use them:
 
 ```
-python locusmasker.py --aln alignment.nex --datatype dna --out scan --threads 0
+locusmasker --aln alignment.nex --datatype dna --out scan --threads 0
 ```
 
 All of the options are listed below. The defaults are sensible, and most people will only ever need the first four.
 
 Input and output:
 
-- `--aln`: the alignment (required).
+- `--aln`: the alignment (required), plain or gzip-compressed.
 - `--datatype dna|aa`: DNA or amino acids (required). DNA is analysed on A, C, G, T (U is read as T); amino acids on the 20 standard residues. Everything else counts as missing.
 - `--out`: the output folder (required).
 - `--partitions`: a RAxML-style partitions file defining the loci. Required unless the alignment is a nexus file with a SETS block.
@@ -149,7 +155,7 @@ Method options:
 Performance options (none of these change the results):
 
 - `--threads 1`: the maximum number of threads to use. `0` means all available.
-- `--memory`: the RAM budget in GB. Default is half of what's free when the run starts; `0` means all available RAM. 
+- `--memory`: the RAM budget in GB. Default is half of what's free when the run starts; `0` means all available RAM. A run whose estimated memory is over the budget stops before it starts.
 - `--restart`: ignore the restart points an earlier run left in the output folder and recompute everything. By default a rerun with the same input and options picks up where it left off.
 - `--progress auto|bar|none`: a progress bar on a terminal, progress lines otherwise.
 
@@ -162,9 +168,34 @@ Help
 
 - `-h` or `--help`: print these options
 
+## Development
+
+The repository is an ordinary Cargo project: the source is in `src/`, the report viewer (HTML, CSS and JavaScript, built into the program when it is compiled) in `viewer/`, and `cargo test --release` runs the unit tests. `python-original/` holds the original Python script with its test suite and the scripts that compare the two programs' outputs; see the `README.md` there.
+
+
+# Computational requirements
+
+Nearly all of the time on a big alignment goes into comparing every pair of taxa, so the number of taxa is what matters most:
+
+- **Running time** grows with the square of the number of taxa and in proportion to the length of the alignment: twice the taxa takes about four times as long, twice the sites about twice as long. The tests that follow the pair comparisons are the smaller part of the run beyond a few thousand taxa (about 3 of the 50 minutes of the largest run below).
+- **Threads**: doubling them cuts the running time by 40 to 45% up to the number of physical cores (the table below); hyperthreads beyond that add less.
+- **Peak memory** grows in proportion to the size of the alignment (taxa x sites: its letters, and its residues again as bit planes at a little under a byte per site for amino acids) and to the number of sequences. Up to 20,000 taxa a matrix of every pair's divergence is kept as well (16 bytes per pair, so 6 GiB at 20,000 taxa), and filling it costs time too. Above 20,000 taxa the matrix is not kept, and memory no longer grows with the square of anything. More threads cost a little more memory; at most eight loci are tested at a time, whatever the thread count.
+
+Measured with version 0.16.0 on amino-acid alignments of 120 loci and 41,084 sites, on a machine with 48 cores (96 hardware threads):
+
+| Taxa | Threads | Running time | Peak memory |
+| ---: | ---: | ---: | ---: |
+| 10,424 | 32 | 31 s | 4.0 GiB |
+| 20,847 | 8 | 3 min 9 s | 3.7 GiB |
+| 20,847 | 16 | 1 min 42 s | 4.0 GiB |
+| 20,847 | 32 | 1 min 0 s | 4.4 GiB |
+| 20,847 | 96 | 47 s | 5.5 GiB |
+| 229,307 | 64 | 50 min 3 s | 41.4 GiB |
+
+The largest of these was read from a gzip-compressed file. The start of `run.log` gives an estimate of the memory the run's long-lived data needs; the peak is higher, as the table shows, by what the tests use while they run.
 
 # License
 
 LocusMasker is released under the MIT License (see `LICENSE`), copyright Robert Lanfear.
 
-Every `report.html` the script writes embeds four third-party components so that the report is a single self-contained file: [D3](https://d3js.org) (ISC), [d3-sankey](https://github.com/d3/d3-sankey) (BSD 3-clause), [Fuse.js](https://www.fusejs.io) (Apache 2.0) and the [Inter](https://rsms.me/inter/) font (SIL Open Font License 1.1). Their licenses are in `viewer/vendor/`, and every report carries a copy of them in its page source.
+Every `report.html` LocusMasker writes embeds four third-party components so that the report is a single self-contained file: [D3](https://d3js.org) (ISC), [d3-sankey](https://github.com/d3/d3-sankey) (BSD 3-clause), [Fuse.js](https://www.fusejs.io) (Apache 2.0) and the [Inter](https://rsms.me/inter/) font (SIL Open Font License 1.1). Their licenses are in `viewer/vendor/`, and every report carries a copy of them in its page source.

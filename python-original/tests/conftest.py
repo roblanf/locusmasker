@@ -109,10 +109,28 @@ class Run:
     def exists(self, name): return os.path.exists(os.path.join(self.out, name))
 
 
+BIN = os.environ.get("LOCUSMASKER_BIN")      # the Rust port's binary: when set, run_tool and run_cli run it instead of the Python tool
+BIN_HOOKS = ("DENSE_CELLS_MAX", "BEST_MATCH_ALL_MAX_TAXA", "FULL_M_MAX_TAXA", "SWEEP_BLOCK_MIN", "REPORT_SAMPLE_CELLS", "REPORT_SEQ_ALL_MAX", "STOP_AFTER")   # constants the binary reads from LOCUSMASKER_<NAME>
+
+
+_HOOK_DEFAULTS = {k: getattr(lo, k) for k in BIN_HOOKS}
+
+
+def _bin_env():
+    """the environment of a binary run: a constant a test has monkeypatched in the module reaches the binary as its test hook"""
+    env = dict(os.environ)
+    for k in BIN_HOOKS:
+        if getattr(lo, k) != _HOOK_DEFAULTS[k] and getattr(lo, k) is not None: env["LOCUSMASKER_" + k] = str(getattr(lo, k))
+    return env
+
+
 def run_tool(aln, out, dtype, parts=None, extra=(), progress="none"):
     """the tool in this process (so coverage sees it): main() with sys.argv set, stderr captured, the module's progress
-    and log state restored afterwards. SystemExit is caught and its code returned."""
+    and log state restored afterwards. SystemExit is caught and its code returned. With LOCUSMASKER_BIN set, the Rust
+    port's binary as a subprocess instead."""
     argv = [TOOL_PATH, "--aln", aln, "--out", out, "--datatype", dtype, "--progress", progress] + (["--partitions", parts] if parts else []) + list(extra)
+    if BIN:
+        r = subprocess.run([BIN] + argv[1:], capture_output=True, text=True, env=_bin_env()); return Run(out, r.stderr, r.returncode)
     old_argv, old_err = sys.argv, sys.stderr; sys.argv = argv; err = io.StringIO(); sys.stderr = err
     old_prog, old_bar, old_fh = lo.PROG, lo.LOG.bar, lo.LOG.fh; lo.LOG.real = err; rc = 0
     try:
@@ -127,7 +145,7 @@ def run_tool(aln, out, dtype, parts=None, extra=(), progress="none"):
 
 def run_cli(args, cwd=None, timeout=600):
     """the tool as a separate process: the command line a user types"""
-    return subprocess.run([PY, TOOL_PATH] + list(args), capture_output=True, text=True, cwd=cwd, timeout=timeout)
+    return subprocess.run(([BIN] if BIN else [PY, TOOL_PATH]) + list(args), capture_output=True, text=True, cwd=cwd, timeout=timeout)
 
 
 @pytest.fixture(scope="session")

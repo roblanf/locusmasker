@@ -1,4 +1,4 @@
-# the conda environment LocusMasker runs in, and the extras its test suite needs
+# the conda environment locusmasker.py (the original Python LocusMasker) runs in, and the extras its test suite needs
 #   conda env create -f environment.yml && conda activate locusmasker
 #   python -m playwright install chromium      # once, for the viewer tests (tests/viewer); they are skipped without it
 name: locusmasker

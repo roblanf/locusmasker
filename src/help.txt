@@ -1,0 +1,49 @@
+usage: locusmasker --aln FILE --datatype dna|aa --out DIR [options]
+
+LocusMasker 0.16.0: find and mask the per-locus outliers of a multi-locus alignment.
+
+  locusmasker --aln alignment.nex --datatype dna --out scan
+  locusmasker --aln alignment.fasta --partitions partitions.txt --datatype dna --out scan
+  locusmasker --aln alignment.nex --datatype dna --out scan --threads 0
+
+input and output:
+  --aln FILE                the alignment (required). A gzip-compressed file is read as it is, and
+                            the masked alignment is then written gzip-compressed too
+  --datatype dna|aa         DNA or amino acids (required). DNA is analysed on A, C, G, T (U is read
+                            as T); amino acids on the 20 standard residues. Everything else counts
+                            as missing
+  --out DIR                 the output folder (required)
+  --partitions FILE         a RAxML-style partitions file defining the loci. Required unless the
+                            alignment is a nexus file with a SETS block
+  --name NAME               the dataset name shown in the report. Default is the alignment file's
+                            name
+
+method:
+  --n-comp N                the number of close relatives each sequence is compared to. Must be odd
+                            and at least 3 (default 5)
+  --fit-overlap N           the minimum number of sites a pair must share at a locus to be compared
+                            there (default 20)
+  --alpha P                 the significance level, applied after Bonferroni correction across every
+                            test in the run (default 0.05)
+  --donor-threshold X       in the closest-match and broad-sample tests, a too-similar pair gets a
+                            direction (copy masked, source not) when one member's deviation from its
+                            own expectation is more than this many times the other's. Otherwise the
+                            direction is uncertain and both are masked (default 2)
+
+performance (none of these change the results):
+  --threads N               the maximum number of threads to use. 0 means all available (default 1)
+  --memory GB               the RAM budget in GB. Default is half of what's free when the run
+                            starts; 0 means all available RAM
+  --restart                 ignore the restart points an earlier run left in the output folder and
+                            recompute everything. By default a rerun with the same input and options
+                            picks up where it left off
+  --progress auto|bar|none  a progress bar on a terminal, progress lines otherwise (default auto)
+
+report:
+  --no-report               write no report at all
+  --all-tests               also write tests.tsv.gz, one row per test performed with its statistic,
+                            p-value and result. Useful if you want to do your own analysis of the
+                            results, but large
+
+help:
+  -h, --help                print these options

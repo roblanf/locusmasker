@@ -1,11 +1,12 @@
+/target/
 __pycache__/
 *.pyc
 scan/
 *.npy
 notes/
 test_data/
-validation/simsuite*/
-validation/bench/
+python-original/validation/simsuite*/
+python-original/validation/bench/
 pngs/
 .hypothesis/
 .pytest_cache/

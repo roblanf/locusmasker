@@ -1,0 +1,28 @@
+[package]
+name = "locusmasker"
+version = "0.16.0"
+edition = "2021"
+description = "LocusMasker: find and mask the per-locus outliers of a multi-locus alignment"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/donovan-h-parks/locusmasker-rust"
+build = "build.rs"
+
+[[bin]]
+name = "locusmasker"
+path = "src/main.rs"
+
+[dependencies]
+rayon = "1.10"
+flate2 = "1"
+crc32fast = "1"
+memchr = "2"
+sha2 = "0.10"
+base64 = "0.22"
+regex = "1"
+libc = "0.2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[profile.release]
+opt-level = 3
+debug = 1
